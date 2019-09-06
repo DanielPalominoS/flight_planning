@@ -1,0 +1,19 @@
+#hector_image_processing/image_point[]   im_coors
+crop_image_processing/Image_point[]   im_coors
+geometry_msgs/Vector3   ref_gps
+geometry_msgs/Vector3   uav_gps
+geometry_msgs/Vector3 uav_Ori
+float64 i_width
+float64 i_height
+float64 fx
+float64 fy
+float64 cx
+float64 cy
+float64 skew
+float64 cam_ori
+float64 s_width
+float64 fl
+bool are_degrees
+---
+bool    success
+geometry_msgs/Vector3[] gps_coors
