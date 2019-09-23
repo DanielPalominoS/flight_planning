@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(flight_planning)
-
+add_definitions(-D DEBUG)
+SET(CUDA_VERSION 8.0)
+SET(OpenCV_DIR /usr/local/share/OpenCV)
+SET(LD_LIBRARY_PATH /usr/local:$LD_LIBRARY_PATH)
+SET(CMAKE_PREFIX_PATH /usr/local:$CMAKE_PREFIX_PATH)
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
 
@@ -14,7 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   geometry_msgs
   message_generation
-  actionlib
+  #actionlib
   OpenCV
 )
 find_package (GeographicLib 1.34 REQUIRED)
@@ -203,14 +207,9 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-#add_executable(flight_planner src/flight_planner.cpp)
-#target_link_libraries(
-#  flight_planner ${catkin_LIBRARIES} ${GeographicLib_LIBRARIES}
-#)
+
 add_executable(flight_planner src/flight_planner.cpp)
-target_link_libraries(
-  flight_planner ${catkin_LIBRARIES} ${GeographicLib_LIBRARIES}
-)
+target_link_libraries(flight_planner ${catkin_LIBRARIES} ${GeographicLib_LIBRARIES})
 
 #add_executable(fli_planner src/flight_plannerv6.cpp)
 #target_link_libraries(

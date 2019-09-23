@@ -12,23 +12,11 @@
 #include  "actionlib/client/simple_action_client.h"
 #include  "sensor_msgs/Imu.h"
 #include  "sensor_msgs/NavSatFix.h"
-//#include  <hector_quadrotor_interface/limiters.h>
-#include  "hector_uav_msgs/EnableMotors.h"
 //openCV libraries
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include <geometry_msgs/Point.h>
-//own generated packages libraries
-#include  "hector_image_processing/find_crop_features.h"
-#include  "hector_image_processing/take_save_picture.h"
-#include  "hector_image_processing/image_point.h"
-#include  "hector_image_processing/crop.h"
-#include  "hector_waypoint_control/calculate_flight_height.h"
-#include  "hector_waypoint_control/calculate_gsd.h"
-#include  "hector_waypoint_control/TakeoffAction.h"
-
-
 
 #include  "sensor_msgs/CameraInfo.h"
 #include  "flight_planning/generate_plan.h"
@@ -48,12 +36,11 @@
 
 #include <vector>
 
+//own generated packages libraries
 #include  "crop_image_processing/Find_crop_features.h"
 #include  "crop_image_processing/Take_save_picture.h"
 #include  "crop_image_processing/Image_point.h"
 #include  "crop_image_processing/Crop.h"
-
-
 
 namespace gl=GeographicLib;
 namespace bg=boost::geometry;
@@ -109,13 +96,15 @@ public:
 
 #ifndef FLIGHT_PLANNER_H
 #define FLIGHT_PLANNER_H
-const double a=gl::Constants::WGS84_a();//6378137;//Semimajor axis
+/*const double a=gl::Constants::WGS84_a();//6378137;//Semimajor axis
 const double f=gl::Constants::WGS84_f();//1/298.257223563;
-const gl::Geodesic& geod=gl::Geodesic::WGS84 ();
-const gl::Geocentric& ecef=gl::Geocentric::WGS84 ();
 const double b=a*(1-f);//Semiminor axis
 const double e2=(a*a-b*b)/(a*a);//first excentricity
-const double E2=e2/(1-e2);//second excentricity
+const double E2=e2/(1-e2);//second excentricity*/
+const gl::Geodesic& geod=gl::Geodesic::WGS84 ();
+const gl::Geocentric& ecef=gl::Geocentric::WGS84 ();
+static const std::string kDefaultPlanFlightTopic = "flight_planner/plan_flight";
+static const std::string kDefaultGeorefPointsTopic = "flight_planner/georef_points";
 class flight_planner
 {
   ros::NodeHandle nh;
@@ -152,7 +141,7 @@ class flight_planner
   double  base;
   double  line_space;
   bool  are_degrees;
-  bool  debug_;
+  //bool  debug_;
   gl::LocalCartesian  navf_;
   //crop
   //hector_image_processing::crop crop_f;
@@ -169,7 +158,7 @@ public:
   ///call back that handles the flight planning
   bool plannerCB(flight_planning::generate_plan::Request &req,
                  flight_planning::generate_plan::Response &res);
-  void  generate_points(geometry_msgs::Vector3 first_point, contour_class crop_contour, contour_class bounding_contour, double base, bool debug, cv::Point2f min_vector, cv::Point2f max_vector,
+  void  generate_points(geometry_msgs::Vector3 first_point, contour_class crop_contour, contour_class bounding_contour, double base, cv::Point2f min_vector, cv::Point2f max_vector,
                         geometry_msgs::Vector3 row_vector,
                         geometry_msgs::Vector3 side_vector, uint lines_number, std::vector<std::vector<geometry_msgs::Vector3> > *waypoints,
                         std::vector<double>* heading_vector);
@@ -177,7 +166,7 @@ public:
                         cv::Point2f *min_vector);
   ///call back that handles the process to georeference a point
 
-  uint  find_initial_point_and_side_vector(std::vector<geometry_msgs::Vector3> navf_points, contour_class crop_contour, double line_space, double x_min, double x_max, double y_min, double y_max, bool debug,
+  uint  find_initial_point_and_side_vector(std::vector<geometry_msgs::Vector3> navf_points, contour_class crop_contour, double line_space, double x_min, double x_max, double y_min, double y_max,
                                            geometry_msgs::Vector3* row_vector, geometry_msgs::Vector3* side_vector, uint* line_number);
   void  rotate_vetor(geometry_msgs::Vector3* orig ,geometry_msgs::Vector3* rotated,
                      double magnitude, double  rotation,bool are_degrees);
@@ -201,19 +190,19 @@ public:
   void  enu2ned(geometry_msgs::Vector3* coord);
   ///converts geodetic coors(lat,lon,alt) to navigation frame
   void geod2nf(geometry_msgs::Vector3 uav_gps_posi,geometry_msgs::Vector3 ref_gps_posi,
-                          geometry_msgs::Vector3* navf_point, bool is_degres,bool debug);
+                          geometry_msgs::Vector3* navf_point, bool is_degres);
   void if2navf(double cam_ori, geometry_msgs::Vector3 imu_ori, geometry_msgs::Vector3 uav_gps_posi,
                           cv::Mat k,geometry_msgs::Vector3 image_coord, geometry_msgs::Vector3 ref_gps_posi,
-                          geometry_msgs::Vector3* navf_point, bool is_degrees, double scale,double fl,bool debug);
+                          geometry_msgs::Vector3* navf_point, bool is_degrees, double scale,double fl);
   void navf2if(double cam_ori, geometry_msgs::Vector3 imu_ori, geometry_msgs::Vector3 uav_gps_posi,
                cv::Mat k, cv::Mat navf_coord, geometry_msgs::Vector3 ref_gps_posi,
-               geometry_msgs::Vector3* image_coord, bool is_degrees, double scale, double fl, bool debug);
+               geometry_msgs::Vector3* image_coord, bool is_degrees, double scale, double fl);
   void georef_navf_point(geometry_msgs::Vector3 navf_coord, geometry_msgs::Vector3 ref_gps_posi,
-                          geometry_msgs::Vector3* gps_coord, bool is_degrees, bool debug);
+                          geometry_msgs::Vector3* gps_coord, bool is_degrees);
   ///given the image coordinates, uav pose and camera info, returns the geodetic coordinates
   void georef_image_point(double cam_ori, geometry_msgs::Vector3 imu_ori, geometry_msgs::Vector3 uav_gps_posi,
                           cv::Mat k,geometry_msgs::Vector3 image_coord, geometry_msgs::Vector3 ref_gps_posi,
-                          geometry_msgs::Vector3* georeferenced_point, bool is_degrees, double scale, double fl, bool debug);
+                          geometry_msgs::Vector3* georeferenced_point, bool is_degrees, double scale, double fl);
 };
 
 #endif // FLIGHT_PLANNER_H
