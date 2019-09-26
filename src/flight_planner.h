@@ -1,3 +1,5 @@
+#include <iostream>
+#include <stdio.h>
 //ROS standard libraries
 #include "ros/ros.h"
 #include "std_msgs/String.h"
@@ -105,11 +107,13 @@ const gl::Geodesic& geod=gl::Geodesic::WGS84 ();
 const gl::Geocentric& ecef=gl::Geocentric::WGS84 ();
 static const std::string kDefaultPlanFlightTopic = "flight_planner/plan_flight";
 static const std::string kDefaultGeorefPointsTopic = "flight_planner/georef_points";
+static constexpr double kDefaultRate =20.0 ;
 class flight_planner
 {
   ros::NodeHandle nh;
   ros::ServiceServer  planner;
   ros::ServiceServer  georeferencer;
+  ros::Rate rate_;
   double  node_frec;
   //ros::Subscriber gps_sub;//= nh.subscribe("/ground_truth_to_tf/pose", 100, chatterCallback);
   //ros::Subscriber imu_sub;
@@ -203,6 +207,9 @@ public:
   void georef_image_point(double cam_ori, geometry_msgs::Vector3 imu_ori, geometry_msgs::Vector3 uav_gps_posi,
                           cv::Mat k,geometry_msgs::Vector3 image_coord, geometry_msgs::Vector3 ref_gps_posi,
                           geometry_msgs::Vector3* georeferenced_point, bool is_degrees, double scale, double fl);
+  bool validate_point(contour_class contour,bg_point point,double dist_threshold);
+  void main_task();
+
 };
 
 #endif // FLIGHT_PLANNER_H

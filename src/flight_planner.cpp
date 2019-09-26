@@ -199,31 +199,32 @@ void contour_class::append(double x, double y){
 /*****************************************************************
  *                  metodos flight planner                       *
  * **************************************************************/
-flight_planner::flight_planner()
-{
-  ros::NodeHandle pnh("~");
-  std::string plan_flight_topic;
-  std::string georef_points_topic;
-  pnh.param("PlanFlightTopic",plan_flight_topic,kDefaultPlanFlightTopic);
-  pnh.param("LocalPoseSubTopic",georef_points_topic,kDefaultGeorefPointsTopic);
-  i_width=1280;
-  i_height=960;
-  s_width=0.0088;
-  s_height=0.0132;
-  fl=0.0088;
-  focal_plane_res=i_width/s_width;
-  fl_pixel=focal_plane_res*fl;
-  sidelap=0.3;
-  endlap=0.6;
-  are_degrees=true;
-  k=cv::Mat(3,3,CV_64F);
-  //debug_=true;
-  //navf=gl::LocalCartesian(ref_gps_pose.x,ref_gps_pose.y,
-  //                        ref_gps_pose.z,ecef);
-  navf_=gl::LocalCartesian(ecef);
-  planner=nh.advertiseService(plan_flight_topic, &flight_planner::plannerCB,this);
-  georeferencer=nh.advertiseService(georef_points_topic, &flight_planner::georeferencerCB,this);
-}
+flight_planner::flight_planner():
+  rate_(kDefaultRate)
+  {
+    ros::NodeHandle pnh("~");
+    std::string plan_flight_topic;
+    std::string georef_points_topic;
+    pnh.param("PlanFlightTopic",plan_flight_topic,kDefaultPlanFlightTopic);
+    pnh.param("LocalPoseSubTopic",georef_points_topic,kDefaultGeorefPointsTopic);
+    i_width=1280;
+    i_height=960;
+    s_width=0.0088;
+    s_height=0.0132;
+    fl=0.0088;
+    focal_plane_res=i_width/s_width;
+    fl_pixel=focal_plane_res*fl;
+    sidelap=0.3;
+    endlap=0.6;
+    are_degrees=true;
+    k=cv::Mat(3,3,CV_64F);
+    //debug_=true;
+    //navf=gl::LocalCartesian(ref_gps_pose.x,ref_gps_pose.y,
+    //                        ref_gps_pose.z,ecef);
+    navf_=gl::LocalCartesian(ecef);
+    planner=nh.advertiseService(plan_flight_topic, &flight_planner::plannerCB,this);
+    georeferencer=nh.advertiseService(georef_points_topic, &flight_planner::georeferencerCB,this);
+  }
 ///Object destructor
 flight_planner::~flight_planner()
 {
@@ -402,11 +403,11 @@ bool flight_planner::plannerCB(flight_planning::generate_plan::Request &req,
   crop_row_vector_navf.x*=base;
   crop_row_vector_navf.y*=base;
   #ifdef DEBUG
-  std::cout<<"row vector navf: \n"<<crop_row_vector_navf<<std::endl;}
+  std::cout<<"row vector navf: \n"<<crop_row_vector_navf<<std::endl;
   #endif
   /***Determinación del punto inicial del cultivo***/
   #ifdef DEBUG
-  std::cout<<"\n+++DETERMINACIÓN max's min's x,y contorno+++"<<std::endl;
+  //std::cout<<"\n+++DETERMINACIÓN max's min's x,y contorno+++"<<std::endl;
   #endif
 
   cv::Point2f min_vector;//=cv::Mat(2,1,CV_64F);
@@ -482,6 +483,10 @@ bool flight_planner::plannerCB(flight_planning::generate_plan::Request &req,
 void  flight_planner::generate_points(geometry_msgs::Vector3 first_point,contour_class crop_contour,contour_class  bounding_contour,double base, cv::Point2f min_vector,cv::Point2f max_vector,
                                       geometry_msgs::Vector3 row_vector,geometry_msgs::Vector3 side_vector,uint lines_number,std::vector<std::vector<geometry_msgs::Vector3> >* waypoints,std::vector<double>* heading_vector){
   std::vector<std::vector<geometry_msgs::Vector3> >  flight_lines;//conjunto de lineas con los puntos del vuelo
+
+  std::vector<std::vector<geometry_msgs::Vector3> >  flight_lines2;
+  std::vector<double> heading_vector2;
+
   line_class  row_line;//recta cuyo vector director es la dirección del surco
   uint num_interc;//numero de intersecciones validas
   double  dist_max,dist_min;//distancia entre dos puntos p1,p2
@@ -553,9 +558,10 @@ void  flight_planner::generate_points(geometry_msgs::Vector3 first_point,contour
   #ifdef DEBUG
   std::cout<<"dist_max: "<<num_interc<<"\tnoph: "<<noph<<std::endl;
   #endif
+  std::vector<geometry_msgs::Vector3> temp_vec;
+  geometry_msgs::Vector3 temp_point;
 
   flight_lines.at(0).resize(noph+2*addittional_wp);
-
   flight_lines.at(0).at(0).x=first_point.x-advance_vector.x*addittional_wp-side_vector.x/2;
   flight_lines.at(0).at(0).y=first_point.y-advance_vector.y*addittional_wp-side_vector.y/2;
   //Se utiliza atan2(x/y) ya que en el frame global, el angulo yaw o de heading se mide desde el eje que coincide con el norte
@@ -573,6 +579,29 @@ void  flight_planner::generate_points(geometry_msgs::Vector3 first_point,contour
     flight_lines.at(0).at(i).y=flight_lines.at(0).at(i-1).y+advance_vector.y;
     heading_vector->push_back(heading);
   }
+
+
+  temp_point.x=first_point.x-advance_vector.x*addittional_wp-side_vector.x/2;
+  temp_point.y=first_point.y-advance_vector.x*addittional_wp-side_vector.y/2;
+  temp_point.z=0;
+  temp_vec.clear();
+  if(validate_point(crop_contour,bg_point(temp_point.x,temp_point.y),base)){
+    temp_vec.push_back(temp_point);
+    heading_vector2.push_back(heading);
+  }
+  for(int i=1;i<noph+2*addittional_wp;i++){
+    temp_point.x+=advance_vector.x;
+    temp_point.y+=advance_vector.y;
+    if(validate_point(crop_contour,bg_point(temp_point.x,temp_point.y),base)){
+      temp_vec.push_back(temp_point);
+      heading_vector2.push_back(heading);
+    }
+  }
+  if(!temp_vec.empty()){
+    flight_lines2.push_back(temp_vec);
+  }
+
+
   //Desplazar la linea para hallar las nuevas intercepciones
   row_line.move_line(side_vector.x/2,side_vector.y/2);
   /**********************************************/
@@ -710,16 +739,64 @@ void  flight_planner::generate_points(geometry_msgs::Vector3 first_point,contour
       flight_lines.at(i).at(j).y=flight_lines.at(i).at(j-1).y+advance_vector.y;
       heading_vector->push_back(heading);
     }
+
+    temp_point.x=begin_point.x()-advance_vector.x*addittional_wp;
+    temp_point.y=begin_point.y()-advance_vector.y*addittional_wp;
+    temp_vec.clear();
+    if(validate_point(crop_contour,bg_point(temp_point.x,temp_point.y),base)){
+      temp_vec.push_back(temp_point);
+      heading_vector2.push_back(heading);
+    }
+    for(int i=1;i<noph+2*addittional_wp;i++){
+      temp_point.x+=advance_vector.x;
+      temp_point.y+=advance_vector.y;
+      if(validate_point(crop_contour,bg_point(temp_point.x,temp_point.y),base)){
+        temp_vec.push_back(temp_point);
+        heading_vector2.push_back(heading);
+      }
+    }
+    if(!temp_vec.empty()){
+      flight_lines2.push_back(temp_vec);
+    }
     //Mover la linea
     row_line.move_line(side_vector.x,side_vector.y);
   }
-  waypoints->resize(flight_lines.size());
-  for(int i=0;i<flight_lines.size();i++){
-    waypoints->at(i).resize(flight_lines.at(i).size());
+
+  int counter=0;
+  std::cout<<"Flight lines 2"<<std::endl;
+  //#ifdef DEBUG
+  std::cout <<"fligh lines size: \n"<<flight_lines2.size()<<std::endl;
+
+  std::cout<<"x:\ty:\tangle"<<std::endl;
+  //#endif
+  for(int i=0 ;i<flight_lines2.size();i++){
+    std::cout <<"line_"<<i<< "size: "<<flight_lines2.at(i).size()<<std::endl;
+    for(int j=0;j<flight_lines2.at(i).size();j++){
+      //#ifdef DEBUG
+      std::cout<<flight_lines2.at(i).at(j).x<<"\t";//<<
+      std::cout<<flight_lines2.at(i).at(j).y<<"\t";//<<
+      std::cout<<heading_vector2.at(counter)<<std::endl;
+                 //heading_vector.at(counter)*180/M_PI<<std::endl;
+      //#endif
+      /*geometry_msgs::Vector3  temp;
+      georef_navf_point(navf_plan_waypoints.at(i).at(j),ref_gps_pose,
+                         &temp,are_degrees);
+      temp.z=ref_gps_pose.z+flight_height;
+      res.plan_gps_coors.push_back(temp);*/
+      counter++;
+    }
+  }
+
+  std::cout<<"llego"<<std::endl;
+  //waypoints->resize(flight_lines.size());
+  waypoints->resize(flight_lines2.size());
+  for(int i=0;i<flight_lines2.size();i++){
+    waypoints->push_back(flight_lines2.at(i));
+    /*waypoints->at(i).resize(flight_lines2.at(i).size());
     for(int j=0;j<flight_lines.at(i).size();j++){
       flight_lines.at(i).at(j).z=0;
       waypoints->at(i).at(j)=flight_lines.at(i).at(j);
-    }
+    }*/
   }
   return;
 }
@@ -1159,20 +1236,20 @@ void flight_planner::georef_navf_point(geometry_msgs::Vector3 navf_coord, geomet
   }
   navf_.Reset(ref_gps_posi.x*factor,ref_gps_posi.y*factor,ref_gps_posi.z);
   #ifdef DEBUG
-  std::cout<<std::setprecision(10)<<"navf bef enu2ned\n"<<navf_coord<<std::endl;
+  //std::cout<<std::setprecision(10)<<"navf bef enu2ned\n"<<navf_coord<<std::endl;
   #endif
   navf_.Reverse(navf_coord.x,navf_coord.y,navf_coord.z,gps_coord->x,gps_coord->y,gps_coord->z);
   #ifdef DEBUG
-  std::cout<<std::setprecision(10)<<"goed bef enu2ned\n"<<*gps_coord<<std::endl;
+  //std::cout<<std::setprecision(10)<<"goed bef enu2ned\n"<<*gps_coord<<std::endl;
   #endif
 
   enu2ned(&navf_coord);
   #ifdef DEBUG
-  std::cout<<std::setprecision(10)<<"navf after enu2ned\n"<<navf_coord<<std::endl;
+  //std::cout<<std::setprecision(10)<<"navf after enu2ned\n"<<navf_coord<<std::endl;
   #endif
   navf_.Reverse(navf_coord.x,navf_coord.y,navf_coord.z,gps_coord->x,gps_coord->y,gps_coord->z);
   #ifdef DEBUG
-  std::cout<<std::setprecision(10)<<"goed bef enu2ned\n"<<*gps_coord<<std::endl;
+  //std::cout<<std::setprecision(10)<<"goed bef enu2ned\n"<<*gps_coord<<std::endl;
   #endif
   gps_coord->x/=factor;
   gps_coord->y/=factor;
@@ -1191,14 +1268,35 @@ void flight_planner::georef_image_point(double cam_ori, geometry_msgs::Vector3 i
     return;
 }
 
+bool flight_planner::validate_point(contour_class contour,bg_point point,double dist_threshold){
+  /*bool success;
+  success=(bg::distance(point,contour.polygon_)<dist_threshold)?true:false;
+  return success;*/
+  if(bg::distance(point,contour.polygon_)<dist_threshold){
+    return true;
+  }else{
+    return false;
+  }
+}
+
+void flight_planner::main_task(){
+  #ifdef DEBUG
+  ROS_INFO_ONCE("Ready to check takeoff");
+  #endif
+  while (ros::ok()) {
+    ros::spinOnce();
+    rate_.sleep();
+  }
+}
+
 int main(int argc, char **argv)
 {
 
   std::setprecision (10);
   ros::init(argc, argv, "flight_planner_server");
   flight_planner fp;
-
-  ros::spin();
+  fp.main_task();
+  //ros::spin();
 
   return 0;
 }
