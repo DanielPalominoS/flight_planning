@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <stdio.h>
 //ROS standard libraries
 #include "ros/ros.h"

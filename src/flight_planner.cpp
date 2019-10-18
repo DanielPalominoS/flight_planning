@@ -367,17 +367,25 @@ bool flight_planner::plannerCB(flight_planning::generate_plan::Request &req,
   std::vector<geometry_msgs::Vector3>  crop_navf_coors;
   crop_navf_coors.resize(numCropPoints);
   #ifdef DEBUG
-  std::cout<<"\n++++GEOREFERENCIACIÓN VERTICES+++"<<std::endl;
+  //std::cout<<"\n++++GEOREFERENCIACIÓN VERTICES+++"<<std::endl;
   #endif
+
+  std::fstream  crop_contour_file;
+  crop_contour_file.open ("/home/daniel/Pictures/planning/crop.dat",std::ios::trunc |std::ios::out|std::ios::in);
+  crop_contour_file<< "x\ty\n";
   for(int i=0;i<numCropPoints;i++){
     georef_image_point(cam_ori,imu_uav,uav_gps_pose,k,crop_pixel_coord.at(i),ref_gps_pose,
                        &res.crop_gps_coors[i],are_degrees,scale_number,fl);
     if2navf(cam_ori,imu_uav,uav_gps_pose,k,crop_pixel_coord.at(i),ref_gps_pose,
             &crop_navf_coors.at(i),are_degrees,scale_number,fl);
+    crop_contour_file<<crop_navf_coors[i].x<<"\t"<<crop_navf_coors[i].y<<"\n";
   }
+
+  crop_contour_file.close();
+
   #ifdef DEBUG
-  std::cout<<"\n+++TRANSFORMACIÓN VECTOR ORIENTACIÓN DEL IF AL NAVF+++"<<std::endl;
-  std::cout<<req.crop.row_orientation<<std::endl;
+  //std::cout<<"\n+++TRANSFORMACIÓN VECTOR ORIENTACIÓN DEL IF AL NAVF+++"<<std::endl;
+  //std::cout<<req.crop.row_orientation<<std::endl;
   #endif
   /***transformar el vector de orientación del cultivo***/
 
@@ -390,7 +398,7 @@ bool flight_planner::plannerCB(flight_planning::generate_plan::Request &req,
   tempVec=ref_gps_pose;
   tempVec.z=uav_gps_pose.z;
   #ifdef DEBUG
-  std::cout<<"row vector image: \n"<<crop_row_vector_image<<std::endl;
+  //std::cout<<"row vector image: \n"<<crop_row_vector_image<<std::endl;
   #endif
 
   if2navf(cam_ori,imu_uav,tempVec,k,crop_row_vector_image,ref_gps_pose,
@@ -398,12 +406,12 @@ bool flight_planner::plannerCB(flight_planning::generate_plan::Request &req,
   crop_row_vector_navf.z=0;
   normalize_2d(&crop_row_vector_navf);
   #ifdef DEBUG
-  std::cout<<"row vector navf unit: \n"<<crop_row_vector_navf<<std::endl;
+  //std::cout<<"row vector navf unit: \n"<<crop_row_vector_navf<<std::endl;
   #endif
   crop_row_vector_navf.x*=base;
   crop_row_vector_navf.y*=base;
   #ifdef DEBUG
-  std::cout<<"row vector navf: \n"<<crop_row_vector_navf<<std::endl;
+  //std::cout<<"row vector navf: \n"<<crop_row_vector_navf<<std::endl;
   #endif
   /***Determinación del punto inicial del cultivo***/
   #ifdef DEBUG
@@ -414,8 +422,8 @@ bool flight_planner::plannerCB(flight_planning::generate_plan::Request &req,
   cv::Point2f max_vector;//=cv::Mat(2,1,CV_64F);
   find_max_min_x_y(crop_navf_coors,&max_vector,&min_vector);
   #ifdef DEBUG
-  std::cout<<"min x: "<<min_vector.x<<"\tmin y"<<min_vector.y<<std::endl;
-  std::cout<<"max x: "<<max_vector.x<<"\tmax y"<<max_vector.y<<std::endl;
+  //std::cout<<"min x: "<<min_vector.x<<"\tmin y"<<min_vector.y<<std::endl;
+  //std::cout<<"max x: "<<max_vector.x<<"\tmax y"<<max_vector.y<<std::endl;
   std::cout<<"\n+++GENERACION CONTORNOS+++"<<std::endl;
   #endif
   bounding_contour_.append(min_vector.x,min_vector.y);
@@ -455,6 +463,9 @@ bool flight_planner::plannerCB(flight_planning::generate_plan::Request &req,
   //std::cout <<"angles: \n"<<std::endl;
   std::cout<<"x:\ty:\tangle"<<std::endl;
   #endif
+  std::fstream  plan_file;
+  plan_file.open ("/home/daniel/Pictures/planning/plan.dat",std::ios::trunc |std::ios::out|std::ios::in);
+  plan_file<< "x\ty\n";
   for(int i=0 ;i<navf_plan_waypoints.size();i++){
     for(int j=0;j<navf_plan_waypoints.at(i).size();j++){
       #ifdef DEBUG
@@ -464,14 +475,17 @@ bool flight_planner::plannerCB(flight_planning::generate_plan::Request &req,
                  //heading_vector.at(counter)*180/M_PI<<std::endl;
       #endif
       geometry_msgs::Vector3  temp;
+      plan_file<<navf_plan_waypoints[i][j].x<<"\t"<<navf_plan_waypoints[i][j].y<<"\n";
       georef_navf_point(navf_plan_waypoints.at(i).at(j),ref_gps_pose,
                          &temp,are_degrees);
-      temp.z=ref_gps_pose.z+flight_height;
+      //*********************************
+      //temp.z=ref_gps_pose.z+flight_height;
       res.plan_gps_coors.push_back(temp);
       counter++;
     }
   }
   res.uav_heading=heading_vector;
+  plan_file.close();
   #ifdef DEBUG
   std::cout<<"\n+++FIN+++"<<std::endl;
   //std::cout<<res<<std::endl;
@@ -480,6 +494,7 @@ bool flight_planner::plannerCB(flight_planning::generate_plan::Request &req,
   return  true;
 }
 
+// *************************************************
 void  flight_planner::generate_points(geometry_msgs::Vector3 first_point,contour_class crop_contour,contour_class  bounding_contour,double base, cv::Point2f min_vector,cv::Point2f max_vector,
                                       geometry_msgs::Vector3 row_vector,geometry_msgs::Vector3 side_vector,uint lines_number,std::vector<std::vector<geometry_msgs::Vector3> >* waypoints,std::vector<double>* heading_vector){
   std::vector<std::vector<geometry_msgs::Vector3> >  flight_lines;//conjunto de lineas con los puntos del vuelo
@@ -515,7 +530,7 @@ void  flight_planner::generate_points(geometry_msgs::Vector3 first_point,contour
     x2=x1;
   }
   #ifdef DEBUG
-  std::cout<<"\tx1: "<<x1<<"\ty1: "<<y1<<"\tx2: "<<x2<<"\ty2: "<<y2<<std::endl;
+  //std::cout<<"\tx1: "<<x1<<"\ty1: "<<y1<<"\tx2: "<<x2<<"\ty2: "<<y2<<std::endl;
   #endif
 
   row_line.set_segment(x1,y1,x2,y2);
@@ -533,7 +548,7 @@ void  flight_planner::generate_points(geometry_msgs::Vector3 first_point,contour
   uint  index_max=0,index_min=0;
   num_interc=row_line.find_interception(bounding_contour.polygon_);
   #ifdef DEBUG
-  std::cout<<"num interc: "<<num_interc<<std::endl;
+  //std::cout<<"num interc: "<<num_interc<<std::endl;
   #endif
   // Se determina cual punto de las intercepciones del contorno es el mas lejano para elegirlo como el punto incial
   dist_max=bg::distance(bg_point(first_point.x,first_point.y),row_line.intercect_points_.at(0));
@@ -556,7 +571,7 @@ void  flight_planner::generate_points(geometry_msgs::Vector3 first_point,contour
 
   noph=(uint) ceil(dist_max/base)+1;
   #ifdef DEBUG
-  std::cout<<"dist_max: "<<num_interc<<"\tnoph: "<<noph<<std::endl;
+  //std::cout<<"dist_max: "<<num_interc<<"\tnoph: "<<noph<<std::endl;
   #endif
   std::vector<geometry_msgs::Vector3> temp_vec;
   geometry_msgs::Vector3 temp_point;
@@ -580,19 +595,22 @@ void  flight_planner::generate_points(geometry_msgs::Vector3 first_point,contour
     heading_vector->push_back(heading);
   }
 
-
-  temp_point.x=first_point.x-advance_vector.x*addittional_wp-side_vector.x/2;
-  temp_point.y=first_point.y-advance_vector.x*addittional_wp-side_vector.y/2;
-  temp_point.z=0;
+  flight_lines2.clear();
   temp_vec.clear();
-  if(validate_point(crop_contour,bg_point(temp_point.x,temp_point.y),base)){
+  temp_point.x=first_point.x-advance_vector.x*addittional_wp-side_vector.x/2;
+  temp_point.y=first_point.y-advance_vector.y*addittional_wp-side_vector.y/2;
+  //temp_point.z=0;
+  temp_point.z=flight_height;
+  if(validate_point(crop_contour,bg_point(temp_point.x,temp_point.y),line_space)){
     temp_vec.push_back(temp_point);
     heading_vector2.push_back(heading);
+    //std::cout<<"entro primera linea"<<std::endl;
   }
   for(int i=1;i<noph+2*addittional_wp;i++){
     temp_point.x+=advance_vector.x;
     temp_point.y+=advance_vector.y;
-    if(validate_point(crop_contour,bg_point(temp_point.x,temp_point.y),base)){
+    if(validate_point(crop_contour,bg_point(temp_point.x,temp_point.y),line_space)){
+      //std::cout<<"entro primera linea *"<<std::endl;
       temp_vec.push_back(temp_point);
       heading_vector2.push_back(heading);
     }
@@ -630,7 +648,7 @@ void  flight_planner::generate_points(geometry_msgs::Vector3 first_point,contour
     bg_point  begin_point;
     num_interc=row_line.find_interception(crop_contour.polygon_);
     #ifdef DEBUG
-    std::cout<<"num interc crop contour: "<<num_interc<<std::endl;
+    //std::cout<<"num interc crop contour: "<<num_interc<<std::endl;
     #endif
     if(num_interc==0){
       uint  num_interc2=row_line.find_interception(bounding_contour.polygon_);
@@ -715,7 +733,7 @@ void  flight_planner::generate_points(geometry_msgs::Vector3 first_point,contour
         }
       }
       #ifdef DEBUG
-      std::cout<<"llego"<<std::endl;
+      //std::cout<<"llego"<<std::endl;
       #endif
       advance_vector.x=row_line.intercect_points_.at(index_max).x()-row_line.intercect_points_.at(index_min).x();
       advance_vector.y=row_line.intercect_points_.at(index_max).y()-row_line.intercect_points_.at(index_min).y();
@@ -742,15 +760,16 @@ void  flight_planner::generate_points(geometry_msgs::Vector3 first_point,contour
 
     temp_point.x=begin_point.x()-advance_vector.x*addittional_wp;
     temp_point.y=begin_point.y()-advance_vector.y*addittional_wp;
+    temp_point.z=flight_height;
     temp_vec.clear();
-    if(validate_point(crop_contour,bg_point(temp_point.x,temp_point.y),base)){
+    if(validate_point(crop_contour,bg_point(temp_point.x,temp_point.y),line_space)){
       temp_vec.push_back(temp_point);
       heading_vector2.push_back(heading);
     }
     for(int i=1;i<noph+2*addittional_wp;i++){
       temp_point.x+=advance_vector.x;
       temp_point.y+=advance_vector.y;
-      if(validate_point(crop_contour,bg_point(temp_point.x,temp_point.y),base)){
+      if(validate_point(crop_contour,bg_point(temp_point.x,temp_point.y),line_space)){
         temp_vec.push_back(temp_point);
         heading_vector2.push_back(heading);
       }
@@ -787,17 +806,25 @@ void  flight_planner::generate_points(geometry_msgs::Vector3 first_point,contour
     }
   }
 
+  //***********
+  heading_vector->clear();
+  *heading_vector=heading_vector2;
   std::cout<<"llego"<<std::endl;
-  //waypoints->resize(flight_lines.size());
   waypoints->resize(flight_lines2.size());
   for(int i=0;i<flight_lines2.size();i++){
     waypoints->push_back(flight_lines2.at(i));
-    /*waypoints->at(i).resize(flight_lines2.at(i).size());
+  }
+  //***********
+  /*waypoints->resize(flight_lines.size());
+  for(int i=0;i<flight_lines.size();i++){
+    //waypoints->push_back(flight_lines2.at(i));
+    waypoints->at(i).resize(flight_lines.at(i).size());//GPU Time : 153.615 ms
     for(int j=0;j<flight_lines.at(i).size();j++){
       flight_lines.at(i).at(j).z=0;
       waypoints->at(i).at(j)=flight_lines.at(i).at(j);
-    }*/
-  }
+    }
+  }*/
+
   return;
 }
 uint  flight_planner::find_initial_point_and_side_vector(std::vector<geometry_msgs::Vector3> navf_points,contour_class crop_contour,double line_space,
@@ -857,7 +884,7 @@ uint  flight_planner::find_initial_point_and_side_vector(std::vector<geometry_ms
     rotate_vetor(side_vector,side_vector,line_space,CV_PI,false);
   }
   #ifdef DEBUG
-  std::cout<<"side vector"<<*side_vector<<std::endl;
+  //std::cout<<"side vector"<<*side_vector<<std::endl;
   #endif
   //Con la dirección de avance lateral se pued determinar el numero de lineas para
   //lo cual desde le punto inicial se desplaza la linea cuyo vector director va en
@@ -865,7 +892,7 @@ uint  flight_planner::find_initial_point_and_side_vector(std::vector<geometry_ms
   //se intercepta con el contorno del cultivo
   aux_line=line_class(navf_points.at(index).x,navf_points.at(index).y,row_vector);
   #ifdef DEBUG
-  std::cout<<"row vector"<<*row_vector<<std::endl;
+  //std::cout<<"row vector"<<*row_vector<<std::endl;
   #endif
   bool  conti=true;
   n_lines=1;
@@ -883,20 +910,20 @@ uint  flight_planner::find_initial_point_and_side_vector(std::vector<geometry_ms
       x2=x1;
     }
     #ifdef DEBUG
-    std::cout<<"\tx1: "<<x1<<"\ty1: "<<y1<<"\tx2: "<<x2<<"\ty2: "<<y2<<std::endl;
+    //std::cout<<"\tx1: "<<x1<<"\ty1: "<<y1<<"\tx2: "<<x2<<"\ty2: "<<y2<<std::endl;
     #endif
 
     aux_line.set_segment(x1,y1,x2,y2);
     conti=bg::intersects(aux_line.segment_,crop_contour.polygon_);
     //Mover linea
     #ifdef DEBUG
-    std::cout<<"\t Interc "<< std::boolalpha<<conti;
+    //std::cout<<"\t Interc "<< std::boolalpha<<conti;
     #endif
     if(conti){n_lines++;}
     aux_line.move_line(side_vector->x,side_vector->y);
   }
   #ifdef DEBUG
-  std::cout<<"\n";
+  //std::cout<<"\n";
   #endif
 
   // Se utiliza una linea adicional
@@ -904,6 +931,7 @@ uint  flight_planner::find_initial_point_and_side_vector(std::vector<geometry_ms
   *line_number=n_lines;
   return  index;
 }
+
 void flight_planner::find_max_min_x_y(std::vector<geometry_msgs::Vector3>  points, cv::Point2f *max_vector,
                       cv::Point2f *min_vector){
   double  max_x,min_x,max_y,min_y;
@@ -1169,12 +1197,11 @@ void flight_planner::if2navf(double cam_ori, geometry_msgs::Vector3 imu_ori, geo
     geod2nf(uav_gps_posi,ref_gps_posi,&image_coord,is_degrees);
     vector3_2cvMat(image_coord,&uav_navf_posi);
     #ifdef DEBUG
-    std::cout<<"uav_gps: \n"<<uav_gps_posi<<std::endl;
+    /*std::cout<<"uav_gps: \n"<<uav_gps_posi<<std::endl;
     std::cout<<"uav_navf: \n"<<image_coord<<std::endl;
     std::cout<<"uav_ori: \n"<<imu_ori<<std::endl;
-    std::cout<<"cam coor: \n"<<cam_coord<<std::endl;
+    std::cout<<"cam coor: \n"<<cam_coord<<std::endl;*/
     #endif
-
 
     //Pasar del frame de la camara al frame del body (UAV)
     update_CF2BF(cam_ori,&CF2BF_tf,is_degrees);
@@ -1185,7 +1212,7 @@ void flight_planner::if2navf(double cam_ori, geometry_msgs::Vector3 imu_ori, geo
 
     geor_navf_coord=scale*CF2NF_tf*cam_coord+uav_navf_posi;
     #ifdef DEBUG
-    std::cout<<"coord navf:\n"<< geor_navf_coord<<std::endl;
+    //std::cout<<"coord navf:\n"<< geor_navf_coord<<std::endl;
     #endif
     navf_point->x=geor_navf_coord.at<double>(0,0);
     navf_point->y=geor_navf_coord.at<double>(1,0);
@@ -1247,13 +1274,13 @@ void flight_planner::georef_navf_point(geometry_msgs::Vector3 navf_coord, geomet
   #ifdef DEBUG
   //std::cout<<std::setprecision(10)<<"navf after enu2ned\n"<<navf_coord<<std::endl;
   #endif
-  navf_.Reverse(navf_coord.x,navf_coord.y,navf_coord.z,gps_coord->x,gps_coord->y,gps_coord->z);
+  navf_.Reverse(navf_coord.x,navf_coord.y,-navf_coord.z,gps_coord->x,gps_coord->y,gps_coord->z);
   #ifdef DEBUG
-  //std::cout<<std::setprecision(10)<<"goed bef enu2ned\n"<<*gps_coord<<std::endl;
+  //std::cout<<std::setprecision(10)<<"goed after enu2ned\n"<<*gps_coord<<std::endl;
   #endif
   gps_coord->x/=factor;
   gps_coord->y/=factor;
-  gps_coord->z=factor;
+  //gps_coord->z=factor;
   return;
 }
 
@@ -1272,7 +1299,7 @@ bool flight_planner::validate_point(contour_class contour,bg_point point,double 
   /*bool success;
   success=(bg::distance(point,contour.polygon_)<dist_threshold)?true:false;
   return success;*/
-  if(bg::distance(point,contour.polygon_)<dist_threshold){
+  if(fabs(bg::distance(point,contour.polygon_))<=dist_threshold*1.1){
     return true;
   }else{
     return false;
@@ -1281,7 +1308,7 @@ bool flight_planner::validate_point(contour_class contour,bg_point point,double 
 
 void flight_planner::main_task(){
   #ifdef DEBUG
-  ROS_INFO_ONCE("Ready to check takeoff");
+  ROS_INFO_ONCE("Ready to plan flight");
   #endif
   while (ros::ok()) {
     ros::spinOnce();
